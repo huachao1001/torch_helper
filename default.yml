@@ -1,0 +1,20 @@
+gpu_ids : '0'
+
+# 训练集
+train_dataset_cls: ''
+#测试集
+val_dataset_cls : ''
+model_group_cls : ''
+
+# seed for initializing training. 
+seed : 0
+
+# number of nodes for distributed training
+world_size : 1
+
+# node rank for distributed training
+rank : 0
+port : 22021
+start_epoch: 0
+total_epoch: 20
+amp : True
