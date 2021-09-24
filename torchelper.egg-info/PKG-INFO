@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: torchelper
-Version: 0.0.2
+Version: 0.0.5
 Summary: A helper library for pytorch
 Home-page: https://github.com/huachao1001/torch_helper
 Author: huachao
