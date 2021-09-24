@@ -1,0 +1,16 @@
+Metadata-Version: 2.1
+Name: torchelper
+Version: 0.0.2
+Summary: A helper library for pytorch
+Home-page: https://github.com/huachao1001/torch_helper
+Author: huachao
+Author-email: huachao1001@qq.com
+License: UNKNOWN
+Description: # torch_helper
+        python setup.py sdist bdist_wheel
+        python -m twine upload dist/* --verbose
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Description-Content-Type: text/markdown

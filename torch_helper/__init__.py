@@ -6,3 +6,5 @@ from .data import *
 from .models.lr_scheduler import LinearDownLR
 from .utils.dist_util import master_only, get_rank
 from .metrics  import *
+
+name = "torch_helper"
