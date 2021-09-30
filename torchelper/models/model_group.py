@@ -5,8 +5,8 @@ import copy
 from abc import ABCMeta, abstractmethod
 import torch
 import torch.nn as nn
-from torchelper.utils.dist_util import master_only
-from torchelper.models import lr_scheduler as lr_scheduler
+from torch_helper.utils.dist_util import master_only
+from torch_helper.models import lr_scheduler as lr_scheduler
 from torch.nn.parallel import DataParallel, DistributedDataParallel
 from torch.cuda.amp import autocast, GradScaler
 
@@ -23,7 +23,7 @@ class ModelGroup(metaclass=ABCMeta):
         self.schedulers = {}
         self.optimizers = {}
         self.loss_funcs = {}
-        self.loss_dict = {}
+        # self.loss_dict = {}
         self.amp_scaler = {}
         self.ema_models = {}
         self.ema_flags = {}   # 用于记录ema模型是否是第一次做平滑
@@ -48,16 +48,16 @@ class ModelGroup(metaclass=ABCMeta):
         else:
             self.forward( epoch, step, data)
 
-    def criterion_wrapper(self):
-        if self.is_amp:
-            # 前向过程开启 autocast
-            with autocast():
-                self.criterion()
-        else:
-            self.criterion()
+    # def criterion_wrapper(self):
+    #     if self.is_amp:
+    #         # 前向过程开启 autocast
+    #         with autocast():
+    #             self.criterion()
+    #     else:
+    #         self.criterion()
     
     def backward_wrapper(self):
-        if self.is_amp: 
+        if self.is_amp:
             self.amp_backward()
         else:
             self.backward()
@@ -72,24 +72,29 @@ class ModelGroup(metaclass=ABCMeta):
         '''
         return None
 
-    def criterion(self):
-        '''计算loss
-        :param epoch: int, 当前epoch
-        :param step: int, 在当前epoch中的step数
-        :param data: 训练集dataset返回的item
-        :return: 子类一般返回forward结果
-        '''
-        for key in self.models.keys():
-            loss_func = self.loss_funcs[key]
-            if loss_func is not None:
-                self.loss_dict[key] = loss_func()
+    # def criterion(self):
+    #     '''计算loss
+    #     :param epoch: int, 当前epoch
+    #     :param step: int, 在当前epoch中的step数
+    #     :param data: 训练集dataset返回的item
+    #     :return: 子类一般返回forward结果
+    #     '''
+    #     for key in self.models.keys():
+    #         loss_func = self.loss_funcs[key]
+    #         if loss_func is not None:
+    #             self.loss_dict[key] = loss_func()
 
        
     def amp_backward(self):
         '''混合精度训练一个step执行反向
         '''
         for key in self.models.keys():
-            loss = self.loss_dict.get(key, None)
+            # loss = self.loss_dict.get(key, None)
+            loss = None
+            loss_func = self.loss_funcs[key]
+            if loss_func is not None:
+                with autocast():
+                    loss = loss_func()
             if loss is not None:
                 optimizer = self.optimizers[key]
                 scaler = self.amp_scaler[key]
@@ -109,7 +114,11 @@ class ModelGroup(metaclass=ABCMeta):
         '''一个step执行反向
         '''
         for key in self.models.keys():
-            loss = self.loss_dict.get(key, None)
+            # loss = self.loss_dict.get(key, None)
+            loss = None
+            loss_func = self.loss_funcs[key]
+            if loss_func is not None:
+                loss = loss_func()
             if loss is not None:
                 optimizer = self.optimizers[key]
                 optimizer.zero_grad()
