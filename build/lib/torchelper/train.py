@@ -1,14 +1,14 @@
 import os
 import random
-from torch_helper.utils.dist_util import get_rank
-from torch_helper.models.model_group import ModelGroup
+from torchelper.utils.dist_util import get_rank
+from torchelper.models.model_group import ModelGroup
 from tqdm import tqdm
 import torch 
 import time
 import torch.distributed as dist
 import torch.multiprocessing as mp
-from torch_helper.utils.cls_utils import get_cls
-from torch_helper.data.base_dataset import get_data_loader
+from torchelper.utils.cls_utils import get_cls
+from torchelper.data.base_dataset import get_data_loader
 import torch.backends.cudnn as cudnn
 import subprocess
 
@@ -115,8 +115,10 @@ def train(gpu_id, cfg, is_dist):
     net.set_dataset(train_dataset)
     dataset_size = len(train_dataloader)
     print('#training images = %d' % dataset_size)
-    
-    net.save_model(-1)
+    save_max_count = cfg.get('save_max_count', -1)
+    save_max_time = cfg.get('save_max_time', 2*60*60)
+    if cfg['start_epoch']==0:
+        net.save_model(-1)
     for epoch in range(cfg['start_epoch'], cfg['total_epoch']):
         # validate(net, epoch, val_dataloader)
         net.set_train()
@@ -132,7 +134,7 @@ def train(gpu_id, cfg, is_dist):
             if is_dist:   # 多卡同步
                 torch.distributed.barrier()
         net.update_learning_rate(epoch)
-        net.save_model(epoch)
+        net.save_model(epoch, save_max_count, save_max_time)
         validate(net, epoch, val_dataloader)
 
 

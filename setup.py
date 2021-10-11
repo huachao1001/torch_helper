@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="torchelper",
-    version="0.0.6",
+    version="0.0.7",
     author="huachao",
     author_email="huachao1001@qq.com",
     description="A helper library for pytorch",
