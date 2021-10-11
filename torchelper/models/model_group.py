@@ -5,8 +5,8 @@ import copy
 from abc import ABCMeta, abstractmethod
 import torch
 import torch.nn as nn
-from torch_helper.utils.dist_util import master_only
-from torch_helper.models import lr_scheduler as lr_scheduler
+from torchelper.utils.dist_util import master_only
+from torchelper.models import lr_scheduler as lr_scheduler
 from torch.nn.parallel import DataParallel, DistributedDataParallel
 from torch.cuda.amp import autocast, GradScaler
 
@@ -282,7 +282,7 @@ class ModelGroup(metaclass=ABCMeta):
             weights = torch.load(save_path, map_location=lambda storage, loc: storage)
             # for k,v in weights.items():
             #     n_w['module.'+k] = v
-            self.get_bare_model(model).load_state_dict(weights)
+            self.get_bare_model(model).load_state_dict(weights, strict=False)
             print("success load model:"+ save_path)
         else:
             print("%s not exists yet!" % save_path)

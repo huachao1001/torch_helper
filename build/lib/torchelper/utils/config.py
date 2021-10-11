@@ -3,14 +3,23 @@
 import os
 import yaml
 import sys
-
+def load_default():
+    return {
+        'rank': 0,
+        'seed': 0,
+        'port': 22021,
+        'amp' : True,
+        'gpu_ids': '0'
+    }
+    
 def load_cfg(path):
     '''加载配置参数
     '''
     file_path = os.path.abspath(__file__)
     file_dir = os.path.dirname(file_path)
-    with open(os.path.join(file_dir, '../default.yml'), 'r', encoding='utf-8') as file:
-        base_cfg = yaml.safe_load(file)
+    # with open(os.path.join(file_dir, '../default.yml'), 'r', encoding='utf-8') as file:
+    #     base_cfg = yaml.safe_load(file)
+    base_cfg = load_default()
     with open(path, 'r', encoding='utf-8') as file:
         cfg = yaml.safe_load(file)
     base_cfg.update(cfg)
