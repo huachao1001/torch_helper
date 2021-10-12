@@ -51,6 +51,6 @@ def init_cfg():
     cfg['ori_gpu_ids'] = [int(gpu_id.strip()) for gpu_id in cfg['gpu_ids'].split(",")]
     cfg['gpu_ids'] = [i for i in range(len(cfg['gpu_ids'].split(",")))]
     # check path
-    if not os.path.exists( cfg['ckpt_dir']+"/imgs"):
-        os.makedirs(cfg['ckpt_dir']+"/imgs")
+    if not os.path.exists( cfg['ckpt_dir']+"/train_out"):
+        os.makedirs(cfg['ckpt_dir']+"/train_out")
     return cfg

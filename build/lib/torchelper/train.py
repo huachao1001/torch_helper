@@ -109,8 +109,8 @@ def train(gpu_id, cfg, is_dist):
     train_dataset_cls = get_cls(cfg['train_dataset_cls'])
     val_dataset_cls = get_cls(cfg['val_dataset_cls'])
     train_dataset = train_dataset_cls(gpu_id, cfg)
-    train_dataloader = get_data_loader(cfg['batch_size'], train_dataset, dist=is_dist)
-    val_dataloader = get_data_loader(cfg['batch_size'], val_dataset_cls(gpu_id, cfg), dist=False)
+    train_dataloader = get_data_loader(cfg['batch_per_gpu'], train_dataset, dist=is_dist)
+    val_dataloader = get_data_loader(cfg['batch_per_gpu'], val_dataset_cls(gpu_id, cfg), dist=False)
     net:ModelGroup = get_cls(cfg['model_group_cls'])(cfg, gpu_id, True, is_dist, is_amp)
     net.set_dataset(train_dataset)
     dataset_size = len(train_dataloader)
@@ -155,7 +155,7 @@ def train_worker(gpu_id, nprocs, cfg, is_dist, port):
 
     torch.cuda.set_device(gpu_id)
     # 按batch分割给各个GPU
-    cfg['batch_size'] = int(cfg['batch_size'] / nprocs)
+    # cfg['batch_size'] = int(cfg['batch_size'] / nprocs)
     train(gpu_id, cfg, is_dist)
 
 def train_main(cfg):

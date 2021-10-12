@@ -71,7 +71,11 @@ class ModelGroup(metaclass=ABCMeta):
         :return: 子类一般返回forward结果
         '''
         return None
-
+    
+    #用于在tensorboard显示数据
+    def get_vis_dict():
+        #返回格式：{'name':{'type':'image|scalar', 'val':data}, ...}
+        return None
     # def criterion(self):
     #     '''计算loss
     #     :param epoch: int, 当前epoch
