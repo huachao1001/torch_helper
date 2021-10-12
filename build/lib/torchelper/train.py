@@ -11,6 +11,7 @@ from torchelper.utils.cls_utils import get_cls
 from torchelper.data.base_dataset import get_data_loader
 import torch.backends.cudnn as cudnn
 import subprocess
+from torch.utils.tensorboard import SummaryWriter
 
 def check_close_port(port):
     result = subprocess.run(['lsof', '-i:'+str(port)], stdout=subprocess.PIPE)
@@ -103,6 +104,19 @@ def validate(net:ModelGroup, epoch:int, val_dataset):
         print(line)
     torch.distributed.barrier()
 
+#更新tensorboard显示
+def update_vis(dic, tb_writer, epoch, step, step_per_epoch_per_gpu, gpu_count):
+    if dic is None:
+        return
+    step =  (epoch*step_per_epoch_per_gpu+step)*gpu_count
+    for k, v in dic.items():
+        type = v['type'].lower()
+        val = v['val']
+        if 'image' in type:
+            tb_writer.add_image(k, val, step)
+        elif 'scalar' in type:
+            tb_writer.add_scalar(k, val, step)
+
 
 def train(gpu_id, cfg, is_dist):
     is_amp = cfg.get('amp', False)
@@ -114,6 +128,13 @@ def train(gpu_id, cfg, is_dist):
     net:ModelGroup = get_cls(cfg['model_group_cls'])(cfg, gpu_id, True, is_dist, is_amp)
     net.set_dataset(train_dataset)
     dataset_size = len(train_dataloader)
+    
+    tb_writer = None
+    gpu_count = len(cfg['ori_gpu_ids'])
+    step_per_epoch_per_gpu = dataset_size // cfg['batch_per_gpu']
+    if net.get_vis_dict() is not None and gpu_id==0:
+        tb_writer = SummaryWriter(cfg['ckpt_dir'])
+
     print('#training images = %d' % dataset_size)
     save_max_count = cfg.get('save_max_count', -1)
     save_max_time = cfg.get('save_max_time', 2*60*60)
@@ -133,6 +154,8 @@ def train(gpu_id, cfg, is_dist):
             net.backward_wrapper()
             if is_dist:   # 多卡同步
                 torch.distributed.barrier()
+            if gpu_id==0 and tb_writer is not None:
+                update_vis(net.get_vis_dict(), tb_writer, epoch, i, step_per_epoch_per_gpu, gpu_count)
         net.update_learning_rate(epoch)
         net.save_model(epoch, save_max_count, save_max_time)
         validate(net, epoch, val_dataloader)
