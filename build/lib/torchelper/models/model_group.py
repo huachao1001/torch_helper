@@ -27,8 +27,8 @@ class ModelGroup(metaclass=ABCMeta):
         self.amp_scaler = {}
         self.ema_models = {}
         self.ema_flags = {}   # 用于记录ema模型是否是第一次做平滑
-        if not os.path.exists(os.path.join(self.ckpt_dir, "imgs")):
-            os.makedirs(os.path.join(self.ckpt_dir, "imgs"))
+        # if not os.path.exists(os.path.join(self.ckpt_dir, "imgs")):
+        #     os.makedirs(os.path.join(self.ckpt_dir, "imgs"))
         # 默认只在GPU训练
         torch.cuda.set_device(gpu_id)
         # self.device = torch.device('cuda')
@@ -73,7 +73,7 @@ class ModelGroup(metaclass=ABCMeta):
         return None
     
     #用于在tensorboard显示数据
-    def get_vis_dict():
+    def get_vis_dict(self):
         #返回格式：{'name':{'type':'image|scalar', 'val':data}, ...}
         return None
     # def criterion(self):
@@ -261,20 +261,18 @@ class ModelGroup(metaclass=ABCMeta):
         if time.time() - self.last_interval_save_time > max_time:
             self.last_interval_save_time = time.time()
         else:
-            self.pth_list.append(epoch)
+            # print('before:', self.pth_list)
+            if epoch not in self.pth_list:
+                self.pth_list.append(epoch)
+            # print('before:', self.pth_list)
             while len(self.pth_list) > max_count and max_count > 1:
-                save_opt_filename = "%s_optimizer_%s.pth" % (self.pth_list[0], name)
-                save_weight_filename = "%s_weights_%s.pth" % (self.pth_list[0], name)
-                # save_ema_filename = "%s_weights_%s_ems.pth" % (self.pth_list[0], name)
-                opt_path = os.path.join(self.ckpt_dir, save_opt_filename)
-                weight_path = os.path.join(self.ckpt_dir, save_weight_filename)
-                # ema_path = os.path.join(self.ckpt_dir, save_ema_filename)
-                if os.path.exists(opt_path):
-                    os.remove(opt_path)
-                if os.path.exists(weight_path):
-                    os.remove(weight_path)
-                # if os.path.exists(ema_path):
-                #     os.remove(ema_path)
+                for name in os.listdir(self.ckpt_dir):
+                    if name.endswith('.pth'):
+                        is_opt = name.startswith('%s_optimizer_'%self.pth_list[0])
+                        is_weight = name.startswith('%s_weights_'%self.pth_list[0])
+                        if is_opt or is_weight:
+                            path = os.path.join(self.ckpt_dir, name)
+                            os.remove(path)
                 del self.pth_list[0]
 
     def load_model_optimizer(self, epoch, name, model, optimizer):

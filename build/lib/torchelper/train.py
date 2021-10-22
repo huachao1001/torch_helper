@@ -131,7 +131,7 @@ def train(gpu_id, cfg, is_dist):
     
     tb_writer = None
     gpu_count = len(cfg['ori_gpu_ids'])
-    step_per_epoch_per_gpu = dataset_size // cfg['batch_per_gpu']
+    step_per_epoch_per_gpu = dataset_size #// cfg['batch_per_gpu']
     if net.get_vis_dict() is not None and gpu_id==0:
         tb_writer = SummaryWriter(cfg['ckpt_dir'])
 

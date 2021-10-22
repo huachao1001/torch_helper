@@ -1,5 +1,6 @@
 import functools
 import torch.distributed as dist
+from torch.nn.parallel import DataParallel, DistributedDataParallel
 
 def get_rank():
     rank = 0
@@ -17,3 +18,11 @@ def master_only(func):
             return func(*args, **kwargs)
 
     return wrapper
+
+def get_bare_model(net):
+    """Get bare model, especially under wrapping with
+    DistributedDataParallel or DataParallel.
+    """
+    if isinstance(net, (DataParallel, DistributedDataParallel)):
+        net = net.module
+    return net
