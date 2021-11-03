@@ -77,7 +77,7 @@ def validate(net:ModelBuilder, epoch:int, val_dataset):
     :raises ValueError: 描述抛出异常场景
     '''
     if get_rank()==0:
-        net.before_validate(epoch)
+        # net.before_validate(epoch)
         # time.sleep(10)
         
         val_data:dict = {}
@@ -95,7 +95,7 @@ def validate(net:ModelBuilder, epoch:int, val_dataset):
             for key, val in val_data.items():
                 val_arr.append(key + ":" + str(val_data[key] * 1.0 / len(val_dataset)))
             line = line+', '.join(val_arr)
-        val_data = net.after_validate(epoch)
+        # val_data = net.after_validate(epoch)
         if val_data is not None:
             val_arr = []
             for key, val in val_data.items():
@@ -130,51 +130,55 @@ def train(gpu_id, cfg, is_dist):
     train_dataset = train_dataset_cls(gpu_id, cfg)
     train_dataloader = get_data_loader(cfg['batch_per_gpu'], train_dataset, dist=True)
     val_dataloader = get_data_loader(cfg['batch_per_gpu'], val_dataset_cls(gpu_id, cfg), dist=False)
-    builer:ModelBuilder = get_cls(cfg['model_builder'])(cfg, True, cfg['ckpt_dir'], gpu_id, is_amp)
-    # builer:ModelBuilder = ModelBuilder(True, cfg['ckpt_dir'], gpu_id, is_amp)
-    builer.set_dataset(train_dataset)
+    builder:ModelBuilder = get_cls(cfg['model_builder'])(cfg, True, cfg['ckpt_dir'], gpu_id, is_amp)
+    # builder:ModelBuilder = ModelBuilder(True, cfg['ckpt_dir'], gpu_id, is_amp)
+    builder.set_dataset(train_dataset)
     dataset_size = len(train_dataloader)
     
     tb_writer = None
     gpu_count = len(cfg['ori_gpu_ids'])
     step_per_epoch_per_gpu = dataset_size 
-    if builer.get_vis_dict() is not None and gpu_id==0:
+    if builder.get_vis_dict() is not None and gpu_id==0:
         tb_writer = SummaryWriter(cfg['ckpt_dir'])
 
     print('#training images = %d' % dataset_size)
-    save_max_count = cfg.get('save_max_count', -1)
-    save_max_time = cfg.get('save_max_time', 2*60*60)
+    # save_max_count = cfg.get('save_max_count', -1)
+    # save_max_time = cfg.get('save_max_time', 2*60*60)
     # if cfg['start_epoch']==0:
-    #     builer.save_model(-1)
-    builer.perform_cb('on_begin_train')
+    #     builder.save_model(-1)
+    builder.perform_cb('on_begin_train')
     for epoch in range(cfg['start_epoch'], cfg['total_epoch']):
         # validate(net, epoch, val_dataloader)
-        builer.set_train()
+        builder.set_train()
         if gpu_id==0:
             pbar = tqdm(train_dataloader)
             enum_data = enumerate(pbar)
         else:
             pbar = None
             enum_data =  enumerate(train_dataloader)
-        builer.perform_cb('on_begin_epoch', epoch=epoch)
+        builder.perform_cb('on_begin_epoch', epoch=epoch)
         for i, data in enum_data:
-            builer.perform_cb('on_begin_step', epoch=epoch, step=i)
-            builer.forward_wrapper(data)
+            builder.on_begin_forward(data, epoch, i)
+            builder.perform_cb('on_begin_step', epoch=epoch, step=i)
+            builder.forward_wrapper(epoch, i, data)
+            builder.on_end_forward(  epoch, i)
+            builder.on_begin_backward( epoch, i)
             # 计算loss
-            builer.backward_wrapper()
+            builder.backward_wrapper()
             if is_dist:   # 多卡同步
                 torch.distributed.barrier()
-            builer.perform_cb('on_end_step', epoch=epoch, step=i)
+            builder.on_end_backward( epoch, i)
+            builder.perform_cb('on_end_step', epoch=epoch, step=i)
             if gpu_id==0:
                 if pbar is not None:
-                    pbar.set_description(builer.get_print_metric())
+                    pbar.set_description(builder.get_print_metric())
                 if tb_writer is not None:
-                    update_vis( builer.get_vis_dict(), tb_writer, epoch, i, step_per_epoch_per_gpu, gpu_count)
-        builer.perform_cb('on_end_epoch', epoch=epoch)
-        builer.update_learning_rate(epoch)
-        # builer.save_model(epoch, save_max_count, save_max_time)
-        validate(builer, epoch, val_dataloader)
-    builer.perform_cb('on_end_train')
+                    update_vis( builder.get_vis_dict(), tb_writer, epoch, i, step_per_epoch_per_gpu, gpu_count)
+        builder.perform_cb('on_end_epoch', epoch=epoch)
+        builder.update_learning_rate(epoch)
+        # builder.save_model(epoch, save_max_count, save_max_time)
+        validate(builder, epoch, val_dataloader)
+    builder.perform_cb('on_end_train')
 
 
 def train_worker(gpu_id, nprocs, cfg, is_dist, port):

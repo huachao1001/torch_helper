@@ -14,4 +14,4 @@ def new_cls(class_str, *arg):
     :return: Model, class_str对应的模型类
     '''
     g_cls = get_cls(class_str)
-    return g_cls(arg)
+    return g_cls(*arg)

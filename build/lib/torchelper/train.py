@@ -1,7 +1,7 @@
 import os
 import random
 from torchelper.utils.dist_util import get_rank
-from torchelper.models.model_group import ModelGroup
+from torchelper.models.model_builder import ModelBuilder
 from tqdm import tqdm
 import torch 
 import time
@@ -68,16 +68,16 @@ def get_port(def_port):
     return get_port(def_port+1)
 
 
-def validate(net:ModelGroup, epoch:int, val_dataset):
+def validate(net:ModelBuilder, epoch:int, val_dataset):
     '''执行验证集
-    :param net: ModelGroup子类实例
+    :param net: ModelBuilder子类实例
     :param epoch: int, 当前epoch
     :param val_dataset: 验证集
     :return: 返回描述
     :raises ValueError: 描述抛出异常场景
     '''
     if get_rank()==0:
-        net.before_validate(epoch)
+        # net.before_validate(epoch)
         # time.sleep(10)
         
         val_data:dict = {}
@@ -95,7 +95,7 @@ def validate(net:ModelGroup, epoch:int, val_dataset):
             for key, val in val_data.items():
                 val_arr.append(key + ":" + str(val_data[key] * 1.0 / len(val_dataset)))
             line = line+', '.join(val_arr)
-        val_data = net.after_validate(epoch)
+        # val_data = net.after_validate(epoch)
         if val_data is not None:
             val_arr = []
             for key, val in val_data.items():
@@ -108,57 +108,77 @@ def validate(net:ModelGroup, epoch:int, val_dataset):
 def update_vis(dic, tb_writer, epoch, step, step_per_epoch_per_gpu, gpu_count):
     if dic is None:
         return
+    msg = []
     step =  (epoch*step_per_epoch_per_gpu+step)*gpu_count
     for k, v in dic.items():
         type = v['type'].lower()
         val = v['val']
+        if val is None:
+            continue
+        msg.append('%s:%05f' %(k, val))
         if 'image' in type:
             tb_writer.add_image(k, val, step)
         elif 'scalar' in type:
             tb_writer.add_scalar(k, val, step)
-
+        elif 'audio' in type:
+            tb_writer.add_audio(k, val, step)
 
 def train(gpu_id, cfg, is_dist):
     is_amp = cfg.get('amp', False)
     train_dataset_cls = get_cls(cfg['train_dataset_cls'])
     val_dataset_cls = get_cls(cfg['val_dataset_cls'])
     train_dataset = train_dataset_cls(gpu_id, cfg)
-    train_dataloader = get_data_loader(cfg['batch_per_gpu'], train_dataset, dist=is_dist)
+    train_dataloader = get_data_loader(cfg['batch_per_gpu'], train_dataset, dist=True)
     val_dataloader = get_data_loader(cfg['batch_per_gpu'], val_dataset_cls(gpu_id, cfg), dist=False)
-    net:ModelGroup = get_cls(cfg['model_group_cls'])(cfg, gpu_id, True, is_dist, is_amp)
-    net.set_dataset(train_dataset)
+    builder:ModelBuilder = get_cls(cfg['model_builder'])(cfg, True, cfg['ckpt_dir'], gpu_id, is_amp)
+    # builder:ModelBuilder = ModelBuilder(True, cfg['ckpt_dir'], gpu_id, is_amp)
+    builder.set_dataset(train_dataset)
     dataset_size = len(train_dataloader)
     
     tb_writer = None
     gpu_count = len(cfg['ori_gpu_ids'])
-    step_per_epoch_per_gpu = dataset_size #// cfg['batch_per_gpu']
-    if net.get_vis_dict() is not None and gpu_id==0:
+    step_per_epoch_per_gpu = dataset_size 
+    if builder.get_vis_dict() is not None and gpu_id==0:
         tb_writer = SummaryWriter(cfg['ckpt_dir'])
 
     print('#training images = %d' % dataset_size)
-    save_max_count = cfg.get('save_max_count', -1)
-    save_max_time = cfg.get('save_max_time', 2*60*60)
-    if cfg['start_epoch']==0:
-        net.save_model(-1)
+    # save_max_count = cfg.get('save_max_count', -1)
+    # save_max_time = cfg.get('save_max_time', 2*60*60)
+    # if cfg['start_epoch']==0:
+    #     builder.save_model(-1)
+    builder.perform_cb('on_begin_train')
     for epoch in range(cfg['start_epoch'], cfg['total_epoch']):
         # validate(net, epoch, val_dataloader)
-        net.set_train()
-        if is_dist and gpu_id==0:
-            enum_data = enumerate(tqdm(train_dataloader))
+        builder.set_train()
+        if gpu_id==0:
+            pbar = tqdm(train_dataloader)
+            enum_data = enumerate(pbar)
         else:
+            pbar = None
             enum_data =  enumerate(train_dataloader)
+        builder.perform_cb('on_begin_epoch', epoch=epoch)
         for i, data in enum_data:
-            net.forward_wrapper(epoch, i, data)
+            builder.on_begin_forward(data, epoch, i)
+            builder.perform_cb('on_begin_step', epoch=epoch, step=i)
+            builder.forward_wrapper(epoch, i, data)
+            builder.on_end_forward(  epoch, i)
+            builder.on_begin_backward( epoch, i)
             # 计算loss
-            # net.criterion_wrapper()
-            net.backward_wrapper()
+            builder.backward_wrapper()
             if is_dist:   # 多卡同步
                 torch.distributed.barrier()
-            if gpu_id==0 and tb_writer is not None:
-                update_vis(net.get_vis_dict(), tb_writer, epoch, i, step_per_epoch_per_gpu, gpu_count)
-        net.update_learning_rate(epoch)
-        net.save_model(epoch, save_max_count, save_max_time)
-        validate(net, epoch, val_dataloader)
+            builder.on_end_backward( epoch, i)
+            builder.perform_cb('on_end_step', epoch=epoch, step=i)
+            if gpu_id==0:
+                if pbar is not None:
+                    pbar.set_description(builder.get_print_metric())
+                if tb_writer is not None:
+                    update_vis( builder.get_vis_dict(), tb_writer, epoch, i, step_per_epoch_per_gpu, gpu_count)
+        builder.perform_cb('on_end_epoch', epoch=epoch)
+        builder.update_learning_rate(epoch)
+        # builder.save_model(epoch, save_max_count, save_max_time)
+        validate(builder, epoch, val_dataloader)
+    builder.perform_cb('on_end_train')
 
 
 def train_worker(gpu_id, nprocs, cfg, is_dist, port):

@@ -1,6 +1,7 @@
 from .models.model_builder import ModelBuilder
 from .callbacks.callback import Callback
 from .callbacks.ckpt_callback import CkptCallback
+from .callbacks.reduce_lr_on_plateau import ReduceLROnPlateau
 from .models.base_model import BaseModel
 from .utils.config import init_cfg, load_cfg
 from .train import train_main
