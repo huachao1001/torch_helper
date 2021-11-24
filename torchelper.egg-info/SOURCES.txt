@@ -11,6 +11,11 @@ torchelper/archs/inception.py
 torchelper/archs/inception_bak.py
 torchelper/archs/style_gan.py
 torchelper/archs/vgg_19.py
+torchelper/callbacks/__init__.py
+torchelper/callbacks/callback.py
+torchelper/callbacks/ckpt_callback.py
+torchelper/callbacks/reduce_lr_on_plateau.py
+torchelper/callbacks/wechat_send_msg_callback.py
 torchelper/data/__init__.py
 torchelper/data/base_dataset.py
 torchelper/data/data_augment.py
