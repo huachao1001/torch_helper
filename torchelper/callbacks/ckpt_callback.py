@@ -1,8 +1,7 @@
 import os
 import torch
 import time
-
-from model.vq import exists
+ 
 from .callback import Callback
 from torchelper.models.base_model import BaseModel
 from torchelper.utils.dist_util import master_only, get_bare_model

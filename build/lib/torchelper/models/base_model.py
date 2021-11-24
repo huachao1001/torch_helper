@@ -4,17 +4,21 @@ from torchelper.utils.dist_util import get_rank
 
 
 class BaseModel(nn.Module):
-    def __init__(self, init_lr):
+    def __init__(self, cfg):
         super().__init__()
+        self.builder = None
         self.__optimizer = None
-        self.init_lr = init_lr
+        self.cfg = cfg
+        self.init_lr = cfg['init_lr']
         self.callbacks = []
         self.gpu_id = get_rank()
         if self.gpu_id>=0:
             self.device = torch.device('cuda:'+str(self.gpu_id))
         else:
             self.device = torch.device('cpu')
-
+    def get_builder(self):
+        return self.builder
+        
     def remap_weights_name(self, weights):
         return weights
 
@@ -45,5 +49,3 @@ class BaseModel(nn.Module):
                 self.__optimizer = torch.optim.Adam(params, lr=self.init_lr, betas=(0.5, 0.999))
         return self.__optimizer
 
-    def get_metric_dict(self):
-        return None

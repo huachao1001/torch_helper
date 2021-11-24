@@ -15,3 +15,8 @@ def new_cls(class_str, *arg):
     '''
     g_cls = get_cls(class_str)
     return g_cls(*arg)
+
+def auto_new_cls(cfg:dict):
+    """自动创建类，从cfg中读取cls类，并将cfg作为参数
+    """
+    return new_cls(cfg['cls'], *[cfg])

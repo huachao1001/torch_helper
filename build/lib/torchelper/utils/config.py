@@ -11,7 +11,28 @@ def load_default():
         'amp' : True,
         'gpu_ids': '0'
     }
+
+def replace_home_dir(cfg):
+    home = os.path.expanduser("~")
+    if isinstance(cfg, str) and cfg.startswith('~/'):
+        return os.path.join(home, cfg[2:])
+    elif isinstance(cfg, list) or isinstance(cfg, tuple):
+        new_v = []
+        for v in cfg:
+            v = replace_home_dir(v)
+            new_v.append(v)
+        if isinstance(cfg, tuple):
+            new_v = tuple(new_v)
+        return new_v
+    elif isinstance(cfg, dict): 
+        for key, val in cfg.items():
+            val = replace_home_dir(val)
+            cfg[key] = val
+        return cfg 
+    return cfg
     
+
+
 def load_cfg(path):
     '''加载配置参数
     '''
@@ -23,11 +44,7 @@ def load_cfg(path):
     with open(path, 'r', encoding='utf-8') as file:
         cfg = yaml.safe_load(file)
     base_cfg.update(cfg)
-    #reset home
-    home = os.path.expanduser("~")
-    for key, val in base_cfg.items():
-        if isinstance(val, str) and val.startswith('~/'):
-            base_cfg[key] = os.path.join(home, val[2:])
+    base_cfg = replace_home_dir(base_cfg)
     return base_cfg
 
 
@@ -54,3 +71,8 @@ def init_cfg():
     if not os.path.exists( cfg['ckpt_dir']+"/train_out"):
         os.makedirs(cfg['ckpt_dir']+"/train_out")
     return cfg
+
+def merge_cfg(cfg, default_cfg):
+    tmp = default_cfg.copy()
+    tmp.update(cfg)
+    return tmp

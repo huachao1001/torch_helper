@@ -27,6 +27,8 @@ torchelper/models/__init__.py
 torchelper/models/base_model.py
 torchelper/models/lr_scheduler.py
 torchelper/models/model_builder.py
+torchelper/models/model_builder_bak.py
+torchelper/models/model_group.py
 torchelper/models/omgd_distiller.py
 torchelper/ops/__init__.py
 torchelper/ops/fused_act/__init__.py
